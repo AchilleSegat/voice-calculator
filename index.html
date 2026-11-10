@@ -1,0 +1,1203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Hands-free calculator: dictate math in English or Italian and see the formula and result as you speak.">
+<title>Voice Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235b5bf0'/%3E%3Crect x='25' y='12' width='14' height='26' rx='7' fill='white'/%3E%3Cpath d='M18 32a14 14 0 0 0 28 0' stroke='white' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M32 46v6' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  /* colors and sizes */
+  :root {
+    --bg: #f3f4fa;
+    --bg-grad: radial-gradient(1200px 600px at 50% -10%, #e4e5ff 0%, transparent 60%);
+    --surface: #ffffff;
+    --surface-2: #f6f7fc;
+    --fg: #14151c;
+    --muted: #6a6f82;
+    --faint: #a3a7b8;
+    --line: #e5e7f0;
+    --accent: #5b5bf0;
+    --accent-2: #8f5cf6;
+    --accent-soft: #ececff;
+    --accent-fg: #ffffff;
+    --ok: #12a150;
+    --warn: #e5484d;
+    --warn-soft: #fdecec;
+    --shadow: 0 1px 2px rgba(20, 21, 40, .04), 0 8px 24px rgba(20, 21, 40, .06);
+    --shadow-lg: 0 20px 60px rgba(20, 21, 40, .18);
+    --r: 20px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c0d13; --bg-grad: radial-gradient(1200px 600px at 50% -10%, #1d1d45 0%, transparent 60%);
+      --surface: #161822; --surface-2: #1c1f2c; --fg: #eef0f7; --muted: #9298ad; --faint: #5d6278;
+      --line: #262a3a; --accent: #8384ff; --accent-2: #b28cff; --accent-soft: #23244a; --accent-fg: #0c0d13;
+      --ok: #3ddc84; --warn: #ff6b6f; --warn-soft: #3a1c20;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25); --shadow-lg: 0 20px 60px rgba(0, 0, 0, .5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c0d13; --bg-grad: radial-gradient(1200px 600px at 50% -10%, #1d1d45 0%, transparent 60%);
+    --surface: #161822; --surface-2: #1c1f2c; --fg: #eef0f7; --muted: #9298ad; --faint: #5d6278;
+    --line: #262a3a; --accent: #8384ff; --accent-2: #b28cff; --accent-soft: #23244a; --accent-fg: #0c0d13;
+    --ok: #3ddc84; --warn: #ff6b6f; --warn-soft: #3a1c20;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25); --shadow-lg: 0 20px 60px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg-grad), var(--bg); background-attachment: fixed;
+    color: var(--fg); font: 15px/1.45 Inter, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; }
+
+  /* layout */
+  .app { min-height: 100%; display: grid; grid-template-rows: auto 1fr; max-width: 1180px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -.2px; flex: 1; min-width: 0; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; color: #fff; }
+  .brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+    display: grid; place-items: center; cursor: pointer; color: var(--muted); transition: .15s; box-shadow: var(--shadow); flex: none; }
+  .icon-btn:hover { color: var(--fg); border-color: var(--accent); }
+  .icon-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .icon-btn svg { width: 18px; height: 18px; }
+
+  /* language switch */
+  .lang { display: flex; align-items: center; gap: 2px; padding: 3px; height: 38px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); flex: none; }
+  .lang svg { width: 16px; height: 16px; color: var(--faint); margin: 0 4px 0 6px; }
+  .lang button { border: none; background: none; cursor: pointer; height: 30px; min-width: 36px; padding: 0 8px;
+    border-radius: 9px; font-size: 13px; font-weight: 700; letter-spacing: .3px; color: var(--muted); transition: .15s; }
+  .lang button:hover { color: var(--fg); }
+  .lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+
+  .layout { display: grid; grid-template-columns: 1fr; gap: 16px; padding: 4px 16px 20px; align-content: start; }
+  @media (min-width: 880px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+    .history { position: sticky; top: 16px; max-height: calc(100vh - 100px); }
+  }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+
+  /* result panel */
+  .stage { padding: 22px 20px 18px; text-align: center; position: relative; overflow: hidden;
+    min-height: 210px; display: flex; flex-direction: column; justify-content: center; gap: 4px; transition: border-color .25s, box-shadow .25s; }
+  .stage::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s;
+    background: radial-gradient(500px 160px at 50% 0%, var(--accent-soft), transparent 70%); }
+  .stage[data-state="live"]::before, .stage[data-state="result"]::before { opacity: 1; }
+  .stage[data-state="result"] { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .stage[data-state="error"] { border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+  .stage > * { position: relative; }
+
+  .expr { font-size: 30px; min-height: 70px; display: flex; align-items: center; justify-content: center;
+    overflow-x: auto; overflow-y: hidden; padding: 4px 0; scrollbar-width: thin; }
+  .expr .katex { white-space: nowrap; }
+  .expr.hint { font-size: 17px; color: var(--muted); font-weight: 500; }
+  .value { font-size: clamp(44px, 11vw, 68px); font-weight: 800; letter-spacing: -2px; line-height: 1.1; min-height: 76px;
+    font-variant-numeric: tabular-nums; word-break: break-all; }
+  .value.waiting { color: var(--faint); font-weight: 500; letter-spacing: 4px; }
+  .value.error { color: var(--warn); font-size: 20px; font-weight: 600; letter-spacing: 0; min-height: 40px; }
+  .value.pop { animation: pop .35s cubic-bezier(.2, .9, .3, 1.3); }
+  @keyframes pop { from { transform: translateY(6px) scale(.94); } to { transform: none; } }
+  .fraction { color: var(--accent); font-size: 22px; min-height: 30px; }
+  .stage-actions { display: flex; justify-content: center; gap: 8px; min-height: 34px; margin-top: 6px; }
+  .chip-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: .15s; }
+  .chip-btn:hover { color: var(--fg); border-color: var(--accent); }
+  .chip-btn svg { width: 14px; height: 14px; }
+  .chip-btn[hidden] { display: none; }
+
+  /* microphone */
+  .mic-area { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 6px 0 2px; }
+  .mic-wrap { position: relative; width: 132px; height: 132px; display: grid; place-items: center; --lvl: 0; }
+  .mic-halo { position: absolute; inset: 14px; border-radius: 50%; background: var(--accent); opacity: .16;
+    transform: scale(calc(1 + var(--lvl) * .45)); transition: transform .08s linear; }
+  .mic-ring { position: absolute; inset: 0; transform: rotate(-90deg); pointer-events: none; }
+  .mic-ring circle { fill: none; stroke-width: 4; }
+  .mic-ring .track { stroke: var(--line); }
+  .mic-ring .countdown { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 364.4; stroke-dashoffset: 364.4; }
+  .mic { position: relative; width: 92px; height: 92px; border-radius: 50%; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; display: grid; place-items: center;
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 45%, transparent); transition: transform .15s, filter .15s, background .3s; }
+  .mic:hover { transform: scale(1.04); }
+  .mic:active { transform: scale(.97); }
+  .mic svg { width: 36px; height: 36px; }
+  .mic .ico-paused { display: none; }
+  .app[data-state="paused"] .mic { background: var(--surface-2); color: var(--muted); box-shadow: var(--shadow); border: 1px solid var(--line); }
+  .app[data-state="paused"] .mic .ico-mic { display: none; }
+  .app[data-state="paused"] .mic .ico-paused { display: block; }
+  .app[data-state="paused"] .mic-halo, .app[data-state="error"] .mic-halo { opacity: 0; }
+  .app[data-state="error"] .mic { background: var(--warn); box-shadow: 0 10px 30px color-mix(in srgb, var(--warn) 40%, transparent); }
+  .app[data-state="starting"] .mic { filter: grayscale(.6) opacity(.7); }
+
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted);
+    padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .app[data-state="listening"] .status .dot { background: var(--ok); animation: pulse 1.8s infinite; }
+  .app[data-state="error"] .status { color: var(--warn); }
+  .app[data-state="error"] .status .dot { background: var(--warn); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+  .heard { min-height: 22px; max-width: 520px; text-align: center; color: var(--muted); font-size: 14px; font-style: italic; padding: 0 12px; }
+  .shortcuts { font-size: 12px; color: var(--faint); text-align: center; padding: 0 12px; }
+  kbd { font: 600 11px Inter, sans-serif; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line);
+    border-bottom-width: 2px; background: var(--surface); color: var(--muted); }
+
+  /* microphone notice */
+  .notice { padding: 18px 20px; border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: var(--warn-soft); }
+  .notice h3 { margin: 0 0 6px; font-size: 15px; color: var(--warn); display: flex; align-items: center; gap: 8px; }
+  .notice ol { margin: 6px 0 12px; padding-left: 20px; color: var(--fg); font-size: 14px; }
+  .notice li { margin: 3px 0; }
+  .notice p { margin: 0 0 10px; font-size: 14px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 12px; border: none; cursor: pointer;
+    background: var(--accent); color: var(--accent-fg); font-weight: 600; font-size: 14px; }
+  .btn:hover { filter: brightness(1.08); }
+  .notice[hidden], .btn[hidden] { display: none; }
+
+  /* examples */
+  .examples { padding: 16px 18px; }
+  .examples h2, .history h2 { margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .examples p { margin: 4px 0 12px; font-size: 13px; color: var(--faint); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 7px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer;
+    font-size: 13.5px; color: var(--fg); transition: .15s; text-align: left; }
+  .chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  /* history */
+  .history { display: flex; flex-direction: column; min-height: 220px; overflow: hidden; }
+  .history-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 10px; }
+  .link-btn { border: none; background: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
+  .link-btn:hover { color: var(--warn); background: var(--warn-soft); }
+  .link-btn[hidden] { display: none; }
+  #history { list-style: none; margin: 0; padding: 0 10px 10px; overflow-y: auto; flex: 1; }
+  #history li button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 10px; border: none; background: none; border-radius: 12px; cursor: pointer; text-align: left; }
+  #history li button:hover { background: var(--surface-2); }
+  #history li + li { border-top: 1px solid var(--line); }
+  #history .e { color: var(--muted); font-size: 16px; overflow: hidden; min-width: 0; padding: 2px 0; }
+  #history .v { font-weight: 700; font-size: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #history .v small { display: block; text-align: right; font-weight: 500; font-size: 12px; color: var(--accent); }
+  #history li.new { animation: slide-in .35s ease-out; }
+  @keyframes slide-in { from { transform: translateY(-6px); } to { transform: none; } }
+  .empty { margin: auto; padding: 24px; text-align: center; color: var(--faint); font-size: 14px; }
+  .empty svg { width: 36px; height: 36px; display: block; margin: 0 auto 8px; opacity: .6; }
+  .empty[hidden] { display: none; }
+
+  /* settings */
+  .scrim { position: fixed; inset: 0; background: rgba(10, 10, 20, .35); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100%); background: var(--surface); z-index: 11;
+    box-shadow: var(--shadow-lg); transform: translateX(105%); transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+    display: flex; flex-direction: column; border-left: 1px solid var(--line); }
+  body.settings-open .scrim { opacity: 1; pointer-events: auto; }
+  body.settings-open .drawer { transform: none; }
+  .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .drawer-head h2 { margin: 0; font-size: 17px; }
+  .drawer-body { padding: 8px 18px 24px; overflow-y: auto; }
+  .opt { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .opt:last-child { border-bottom: none; }
+  .opt-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .opt-title { font-weight: 600; font-size: 14px; }
+  .opt-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .switch { position: relative; width: 44px; height: 26px; flex: none; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: .2s; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: .2s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin-top: 10px; }
+  .range-val { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .segmented { display: flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; margin-top: 10px; }
+  .segmented button { flex: 1; border: none; background: none; padding: 7px 8px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 13px; color: var(--muted); margin-top: 10px; align-items: center; }
+
+  /* toast */
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--fg); color: var(--bg);
+    padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; opacity: 0; pointer-events: none; transition: .2s; z-index: 20; box-shadow: var(--shadow-lg); }
+  .toast.visible { opacity: 1; transform: translate(-50%, 0); }
+
+  /* always-on-top mini window */
+  body.mini { background: var(--surface); }
+  body.mini .stage { border: none; box-shadow: none; border-radius: 0; min-height: 100vh; padding: 10px 12px; }
+  body.mini .expr { font-size: 20px; min-height: 44px; }
+  body.mini .value { font-size: 40px; min-height: 48px; letter-spacing: -1px; }
+  body.mini .fraction { font-size: 16px; min-height: 22px; }
+  body.mini .stage-actions { display: none; }
+
+  @media (max-width: 420px) {
+    .expr { font-size: 24px; }
+    .shortcuts { display: none; }
+    .brand span { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app" data-state="starting">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" stroke="none"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </div>
+      <span data-i18n="appName">Voice Calculator</span>
+    </div>
+    <div class="lang" id="langSwitch" role="group" data-i18n-aria="language" aria-label="Language">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+      <button data-lang="en" aria-pressed="true" title="English">EN</button>
+      <button data-lang="it" aria-pressed="false" title="Italiano">IT</button>
+    </div>
+    <button class="icon-btn" id="btnMini" data-i18n-title="miniWindow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="12" y="12" width="7" height="6" rx="1.2" fill="currentColor" stroke="none"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSettings" data-i18n-title="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>
+    </button>
+  </header>
+
+  <div class="layout">
+    <div class="col">
+      <section class="card stage" id="panel" data-state="empty" aria-live="polite">
+        <div class="expr hint" id="expr"></div>
+        <div class="value waiting" id="value">&nbsp;</div>
+        <div class="fraction" id="fraction"></div>
+        <div class="stage-actions">
+          <button class="chip-btn" id="btnCopy" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+            <span data-i18n="copyResult">Copy result</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="mic-area">
+        <div class="status"><span class="dot"></span><span id="status"></span></div>
+        <div class="mic-wrap" id="micWrap">
+          <div class="mic-halo"></div>
+          <svg class="mic-ring" viewBox="0 0 132 132" aria-hidden="true">
+            <circle class="track" cx="66" cy="66" r="58"/>
+            <circle class="countdown" id="countdown" cx="66" cy="66" r="58"/>
+          </svg>
+          <button class="mic" id="btnPause">
+            <svg class="ico-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" stroke="none"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+            <svg class="ico-paused" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M3 3l18 18"/></svg>
+          </button>
+        </div>
+        <div class="heard" id="heard"></div>
+        <div class="shortcuts" data-i18n-html="shortcuts"></div>
+      </section>
+
+      <section class="card notice" id="notice" hidden>
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          <span id="noticeTitle"></span>
+        </h3>
+        <div id="noticeBody"></div>
+        <button class="btn" id="btnRetry" data-i18n="retry">Retry</button>
+      </section>
+
+      <section class="card examples">
+        <h2 data-i18n="trySaying">Try saying</h2>
+        <p data-i18n="trySayingDesc"></p>
+        <div class="chips" id="chips"></div>
+      </section>
+    </div>
+
+    <aside class="card history" data-i18n-aria="history">
+      <div class="history-head">
+        <h2 data-i18n="history">History</h2>
+        <button class="link-btn" id="btnClear" data-i18n="clear" hidden>Clear</button>
+      </div>
+      <ul id="history"></ul>
+      <div class="empty" id="historyEmpty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span data-i18n-html="historyEmpty"></span>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" data-i18n-aria="settings" aria-hidden="true">
+  <div class="drawer-head">
+    <h2 data-i18n="settings">Settings</h2>
+    <button class="icon-btn" id="btnClose" data-i18n-title="closeSettings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body">
+    <div class="opt">
+      <div class="opt-row">
+        <div class="opt-title" data-i18n="pauseTitle"></div>
+        <span class="range-val" id="pauseValue"></span>
+      </div>
+      <div class="opt-desc" data-i18n="pauseDesc"></div>
+      <input type="range" id="optPause" min="100" max="3000" step="100">
+    </div>
+    <div class="opt">
+      <div class="opt-row">
+        <div>
+          <div class="opt-title" data-i18n="speakTitle"></div>
+          <div class="opt-desc" data-i18n="speakDesc"></div>
+        </div>
+        <label class="switch"><input type="checkbox" id="optSpeak"><span></span></label>
+      </div>
+    </div>
+    <div class="opt">
+      <div class="opt-row">
+        <div>
+          <div class="opt-title" data-i18n="wakeTitle"></div>
+          <div class="opt-desc" data-i18n="wakeDesc"></div>
+        </div>
+        <label class="switch"><input type="checkbox" id="optWake"><span></span></label>
+      </div>
+    </div>
+    <div class="opt">
+      <div class="opt-title" data-i18n="theme"></div>
+      <div class="segmented" id="theme">
+        <button data-theme="auto" aria-pressed="true" data-i18n="themeAuto"></button>
+        <button data-theme="light" aria-pressed="false" data-i18n="themeLight"></button>
+        <button data-theme="dark" aria-pressed="false" data-i18n="themeDark"></button>
+      </div>
+    </div>
+    <div class="opt">
+      <div class="opt-title" data-i18n="commands"></div>
+      <div class="keys" data-i18n-html="commandList"></div>
+    </div>
+  </div>
+</aside>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="math-speech.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const app = $('app');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  // ---- Translations ----
+  const STRINGS = {
+    en: {
+      appName: 'Voice Calculator',
+      language: 'Language',
+      miniWindow: 'Always-on-top mini window',
+      settings: 'Settings',
+      closeSettings: 'Close settings',
+      placeholder: 'Say a calculation, even a long one',
+      copyResult: 'Copy result',
+      starting: 'Starting…',
+      listening: 'Listening',
+      listeningWake: 'Listening · say "calculate…"',
+      paused: 'Paused · tap the mic',
+      micBlocked: 'Microphone blocked',
+      offline: 'Offline · retrying…',
+      noMic: 'No microphone',
+      unsupported: 'Speech recognition unavailable',
+      cannotStart: 'Could not start the microphone',
+      pauseAria: 'Pause listening',
+      resumeAria: 'Resume listening',
+      shortcuts: '<kbd>Space</kbd> pause · <kbd>C</kbd> copy · say <b>"equals"</b> for an instant result',
+      retry: 'Retry',
+      trySaying: 'Try saying',
+      trySayingDesc: 'Keep talking: the result appears when you pause. Tap an example to see it.',
+      examples: ['4 times 2 divided by 3 plus 53', 'three quarters plus one sixth', '2 to the fifth minus the square root of 144',
+        'square root of 9 plus 16 end root', 'log of 8 base 2', 'sine of pi over 6', '3 plus 5 all over 2',
+        'fraction with numerator 3 plus 5 and denominator 2 plus 2', '1.6 times 10 to the minus 19',
+        '2 to the power of 3 plus 1 end exponent', '1 over 2 pi', 'two thirds of 60'],
+      history: 'History',
+      clear: 'Clear',
+      historyEmpty: 'Your calculations will show up here.<br>Tap one to copy its result.',
+      copyItem: 'Copy result',
+      incomplete: 'Incomplete calculation',
+      impossible: 'Impossible: division by zero?',
+      waitingWake: 'Listening… tell me the calculation',
+      copied: 'Copied: ',
+      copyFailed: "Couldn't copy",
+      historyCleared: 'History cleared',
+      miniUnsupported: 'The mini window needs an up-to-date Chrome or Edge',
+      blockedTitle: 'The microphone is blocked',
+      blockedBody: `
+        <p>The calculator doesn't have permission to use the microphone. To allow it:</p>
+        <ol>
+          <li>Make sure this page is open in <b>Google Chrome</b></li>
+          <li>Click the icon to the <b>left of the address</b></li>
+          <li>Set <b>Microphone</b> to <b>Allow</b></li>
+          <li>Come back here and press <b>Retry</b></li>
+        </ol>
+        <p>If it's already allowed, check <b>Windows Settings → Privacy &amp; security → Microphone</b>.</p>`,
+      noMicTitle: 'No microphone found',
+      noMicBody: '<p>Connect a microphone (or a headset with a mic) and press <b>Retry</b>.</p>',
+      unsupportedTitle: 'Browser not supported',
+      unsupportedBody: "<p>This browser can't recognize speech. Open this page in <b>Google Chrome</b>.</p>",
+      pauseTitle: 'Pause before the result',
+      pauseDesc: 'How much silence to wait for before calculating. Increase it if you stop to think halfway.',
+      speakTitle: 'Read the result aloud',
+      speakDesc: 'Short answer with the Google voice.',
+      wakeTitle: 'Answer only after "calculate"',
+      wakeDesc: 'Ignores numbers said in passing. Say "calculate…" or "what is…" before the calculation.',
+      theme: 'Theme',
+      themeAuto: 'Auto',
+      themeLight: 'Light',
+      themeDark: 'Dark',
+      commands: 'Commands',
+      commandList: `
+        <kbd>Space</kbd><span>Pause / resume listening</span>
+        <kbd>C</kbd><span>Copy the last result</span>
+        <kbd>Esc</kbd><span>Close this panel</span>
+        <kbd>"equals"</kbd><span>Say it at the end for an instant result</span>
+        <kbd>"end root"</kbd><span>Puts more terms under one symbol: "square root of 9 plus 16 end root". Also "end log", "end sine", "end absolute value", "end exponent"</span>
+        <kbd>"numerator"</kbd><span>"numerator 3 plus 5 denominator 2 plus 2 (end fraction)"</span>
+        <kbd>"all over"</kbd><span>Puts everything said so far over the bar: "3 plus 5 all over 2"</span>
+        <kbd>"to the minus"</kbd><span>Scientific notation: "1.6 times 10 to the minus 19"</span>
+        <kbd>"radians"</kbd><span>Angles are in degrees; say "radians" or use pi for radians</span>
+        <kbd>"times 2"</kbd><span>Starting with an operator continues from the last result</span>`,
+      seconds: ' s',
+      speechLang: 'en-US',
+      wake: /.*\b(calculat\w*|comput\w*|what'?s|what is|how much is)\b(.*)$/,
+      finish: /\b(equals?|equal to)\s*[.!?]?\s*$/i,
+      wakeWord: 'calculate ',
+      about: 'about ',
+      minus: 'minus ',
+    },
+    it: {
+      appName: 'Calcolatrice vocale',
+      language: 'Lingua',
+      miniWindow: 'Mini finestra sempre in primo piano',
+      settings: 'Impostazioni',
+      closeSettings: 'Chiudi impostazioni',
+      placeholder: "Di' un calcolo, anche lungo",
+      copyResult: 'Copia risultato',
+      starting: 'Avvio…',
+      listening: 'In ascolto',
+      listeningWake: 'In ascolto · di\' "calcola…"',
+      paused: 'In pausa · tocca il microfono',
+      micBlocked: 'Microfono bloccato',
+      offline: 'Senza connessione · riprovo…',
+      noMic: 'Nessun microfono',
+      unsupported: 'Riconoscimento vocale non disponibile',
+      cannotStart: 'Impossibile avviare il microfono',
+      pauseAria: "Metti in pausa l'ascolto",
+      resumeAria: "Riprendi l'ascolto",
+      shortcuts: '<kbd>Spazio</kbd> pausa · <kbd>C</kbd> copia · di\' <b>"uguale"</b> per il risultato subito',
+      retry: 'Riprova',
+      trySaying: 'Prova a dire',
+      trySayingDesc: 'Parla di seguito: il risultato arriva quando ti fermi. Tocca un esempio per vederlo.',
+      examples: ['4 per 2 diviso 3 più 53', 'tre quarti più un sesto', '2 alla quinta meno radice di 144',
+        'radice di 9 più 16 chiusa radice', 'logaritmo di 8 in base 2', 'seno di pi greco fratto 6', '3 più 5 tutto fratto 2',
+        'frazione con numeratore 3 più 5 e denominatore 2 più 2', '1,6 per 10 alla meno 19',
+        '2 elevato a 3 più 1 fine esponente', '1 fratto 2 pi greco', 'due terzi di 60'],
+      history: 'Cronologia',
+      clear: 'Svuota',
+      historyEmpty: 'I calcoli che fai appariranno qui.<br>Toccane uno per copiarne il risultato.',
+      copyItem: 'Copia il risultato',
+      incomplete: 'Calcolo incompleto',
+      impossible: 'Impossibile: divisione per zero?',
+      waitingWake: 'Ti ascolto… dimmi il calcolo',
+      copied: 'Copiato: ',
+      copyFailed: 'Impossibile copiare',
+      historyCleared: 'Cronologia svuotata',
+      miniUnsupported: 'La mini finestra richiede Chrome o Edge aggiornati',
+      blockedTitle: 'Il microfono è bloccato',
+      blockedBody: `
+        <p>La calcolatrice non ha il permesso di usare il microfono. Per darglielo:</p>
+        <ol>
+          <li>Assicurati di avere questa pagina aperta in <b>Google Chrome</b></li>
+          <li>Clicca l'icona a <b>sinistra dell'indirizzo</b></li>
+          <li>Alla voce <b>Microfono</b> scegli <b>Consenti</b></li>
+          <li>Torna qui e premi <b>Riprova</b></li>
+        </ol>
+        <p>Se è già consentito, controlla <b>Impostazioni di Windows → Privacy e sicurezza → Microfono</b>.</p>`,
+      noMicTitle: 'Nessun microfono trovato',
+      noMicBody: '<p>Collega un microfono (o delle cuffie con microfono) e premi <b>Riprova</b>.</p>',
+      unsupportedTitle: 'Browser non supportato',
+      unsupportedBody: '<p>Questo browser non riconosce la voce. Apri questa pagina con <b>Google Chrome</b>.</p>',
+      pauseTitle: 'Pausa prima del risultato',
+      pauseDesc: 'Quanto silenzio aspettare prima di calcolare. Aumentala se ti fermi a pensare a metà.',
+      speakTitle: 'Leggi il risultato ad alta voce',
+      speakDesc: 'Risposta secca con la voce Google.',
+      wakeTitle: 'Rispondi solo dopo "calcola"',
+      wakeDesc: 'Ignora i numeri detti per caso. Di\' "calcola…" o "quanto fa…" prima del calcolo.',
+      theme: 'Tema',
+      themeAuto: 'Automatico',
+      themeLight: 'Chiaro',
+      themeDark: 'Scuro',
+      commands: 'Comandi',
+      commandList: `
+        <kbd>Spazio</kbd><span>Pausa / riprendi l'ascolto</span>
+        <kbd>C</kbd><span>Copia l'ultimo risultato</span>
+        <kbd>Esc</kbd><span>Chiudi questo pannello</span>
+        <kbd>"uguale"</kbd><span>Dillo alla fine per il risultato immediato</span>
+        <kbd>"chiusa radice"</kbd><span>Mette più termini sotto un solo simbolo: "radice di 9 più 16 chiusa radice". Anche "fine logaritmo", "fine seno", "fine valore assoluto", "fine esponente"</span>
+        <kbd>"numeratore"</kbd><span>"numeratore 3 più 5 denominatore 2 più 2 (fine frazione)"</span>
+        <kbd>"tutto fratto"</kbd><span>Mette sopra la linea di frazione tutto ciò che hai detto: "3 più 5 tutto fratto 2"</span>
+        <kbd>"alla meno"</kbd><span>Notazione scientifica: "1,6 per 10 alla meno 19"</span>
+        <kbd>"radianti"</kbd><span>Gli angoli sono in gradi; di' "radianti" o usa pi greco per i radianti</span>
+        <kbd>"per 2"</kbd><span>Se inizi con un'operazione, continua dall'ultimo risultato</span>`,
+      seconds: ' s',
+      speechLang: 'it-IT',
+      wake: /.*\b(calcol\w*|quanto (?:fa|viene|vale))\b(.*)$/,
+      finish: /\b(uguale|risultato|fa)\s*[.!?]?\s*$/i,
+      wakeWord: 'calcola ',
+      about: 'circa ',
+      minus: 'meno ',
+    },
+  };
+
+  // ---- preferences ----
+  const readPref = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } };
+  const savePref = (k, v) => { try { localStorage.setItem(k, String(v)); } catch {} };
+
+  let lang = readPref('lang', 'en') === 'it' ? 'it' : 'en';   // English is the default
+  const T = (key) => STRINGS[lang][key];
+  MathSpeech.setLanguage(lang);
+
+  function applyStrings() {
+    document.documentElement.lang = lang;
+    document.title = T('appName');
+    for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = T(el.dataset.i18n);
+    for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = T(el.dataset.i18nHtml);
+    for (const el of document.querySelectorAll('[data-i18n-title]')) { el.title = T(el.dataset.i18nTitle); el.setAttribute('aria-label', T(el.dataset.i18nTitle)); }
+    for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', T(el.dataset.i18nAria));
+    for (const b of $('langSwitch').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    const chips = $('chips');
+    chips.innerHTML = '';
+    for (const ex of T('examples')) {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.textContent = ex;
+      b.onclick = () => runExample(ex);
+      chips.appendChild(b);
+    }
+    showPause();
+  }
+
+  // ---- settings values ----
+  $('optSpeak').checked = readPref('speak', '0') === '1';
+  $('optWake').checked = readPref('wake', '0') === '1';
+  $('optPause').value = readPref('pause', '1000');
+  const pauseMs = () => Number($('optPause').value);
+  const showPause = () => { $('pauseValue').textContent = (pauseMs() / 1000).toLocaleString(MathSpeech.locale()) + T('seconds'); };
+  $('optSpeak').onchange = (e) => savePref('speak', e.target.checked ? 1 : 0);
+  $('optWake').onchange = (e) => { savePref('wake', e.target.checked ? 1 : 0); refreshListeningStatus(); };
+  $('optPause').oninput = (e) => { savePref('pause', e.target.value); showPause(); };
+
+  // ---- theme ----
+  function applyTheme(t) {
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    for (const b of $('theme').children) b.setAttribute('aria-pressed', String(b.dataset.theme === t));
+    if (pip) syncPipTheme();
+  }
+  $('theme').onclick = (e) => { const t = e.target.dataset.theme; if (t) { savePref('theme', t); applyTheme(t); } };
+
+  // ---- settings drawer ----
+  function settings(open) {
+    document.body.classList.toggle('settings-open', open);
+    $('drawer').setAttribute('aria-hidden', String(!open));
+    $('btnSettings').classList.toggle('active', open);
+    if (open) $('btnClose').focus();
+  }
+  $('btnSettings').onclick = () => settings(!document.body.classList.contains('settings-open'));
+  $('btnClose').onclick = $('scrim').onclick = () => settings(false);
+
+  // ---- toast ----
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('visible');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('visible'), 1800);
+  }
+
+  // ---- formula rendering ----
+  function tex(latex, fallback, large) {
+    if (window.katex) {
+      try { return katex.renderToString((large ? '\\displaystyle ' : '') + latex, { throwOnError: false, displayMode: false }); } catch {}
+    }
+    const s = document.createElement('span'); s.textContent = fallback; return s.innerHTML;
+  }
+  // readable number: at most 6 decimals, with ≈ when rounded
+  function shortNumber(v) {
+    if (!Number.isFinite(v)) return '—';
+    const full = MathSpeech.format(v);
+    if (/e/.test(full)) return MathSpeech.pretty(v);     // scientific notation: 1.6 × 10⁻¹⁹
+    const r = Math.round(v * 1e6) / 1e6;
+    const groupFrom = lang === 'it' ? 10000 : 1000;
+    const s = r.toLocaleString(MathSpeech.locale(), { maximumFractionDigits: 6, useGrouping: Math.abs(r) >= groupFrom }).replace('-', '−');
+    return Math.abs(r - v) > 1e-12 * Math.max(1, Math.abs(v)) ? '≈ ' + s : s;
+  }
+
+  // ---- copy ----
+  let lastValue = null;
+  async function copy(v) {
+    if (v == null) return;
+    const s = MathSpeech.format(v).replace('−', '-').replace(lang === 'it' ? /\./g : /,/g, '');
+    try { await navigator.clipboard.writeText(s); toast(T('copied') + s); }
+    catch { toast(T('copyFailed')); }
+  }
+  $('btnCopy').onclick = () => copy(lastValue);
+
+  // ---- always-on-top mini window (Document Picture-in-Picture) ----
+  let pip = null;
+  const docs = () => pip ? [document, pip.document] : [document];
+  function panel(fn) {
+    for (const d of docs()) {
+      const g = (id) => d.getElementById(id);
+      if (g('value')) fn(g, d);
+    }
+  }
+  function syncPipTheme() {
+    const t = document.documentElement.getAttribute('data-theme');
+    if (t) pip.document.documentElement.setAttribute('data-theme', t);
+    else pip.document.documentElement.removeAttribute('data-theme');
+  }
+  $('btnMini').onclick = async () => {
+    if (pip) { pip.close(); return; }
+    if (!('documentPictureInPicture' in window)) { toast(T('miniUnsupported')); return; }
+    pip = await documentPictureInPicture.requestWindow({ width: 340, height: 180 });
+    for (const s of document.querySelectorAll('style, link[rel=stylesheet]')) pip.document.head.appendChild(s.cloneNode(true));
+    syncPipTheme();
+    pip.document.title = T('appName');
+    pip.document.body.classList.add('mini');
+    pip.document.body.appendChild($('panel').cloneNode(true));
+    $('btnMini').classList.add('active');
+    pip.addEventListener('pagehide', () => { pip = null; $('btnMini').classList.remove('active'); });
+  };
+
+  // ---- panel states ----
+  function showEmpty() {
+    panel((g) => {
+      g('panel').dataset.state = 'empty';
+      g('expr').className = 'expr hint';
+      g('expr').textContent = T('placeholder');
+      g('value').className = 'value waiting';
+      g('value').innerHTML = '&nbsp;';
+      g('fraction').innerHTML = '';
+      if (g('btnCopy')) g('btnCopy').hidden = true;
+    });
+  }
+  function showLive(r) {
+    panel((g) => {
+      g('panel').dataset.state = 'live';
+      g('expr').className = 'expr';
+      g('expr').innerHTML = tex(r.latex, r.text, true);
+      g('value').className = 'value waiting';
+      g('value').textContent = '•••';
+      g('fraction').innerHTML = '';
+      if (g('btnCopy')) g('btnCopy').hidden = true;
+    });
+  }
+  function showResult(r) {
+    const fr = MathSpeech.fraction(r.value);
+    panel((g) => {
+      g('panel').dataset.state = 'result';
+      g('expr').className = 'expr';
+      g('expr').innerHTML = tex(r.latex + ' =', r.text + ' =', true);
+      g('value').className = 'value';
+      void g('value').offsetWidth;
+      g('value').classList.add('pop');
+      g('value').textContent = shortNumber(r.value);
+      g('fraction').innerHTML = fr ? tex('= ' + fr.latex, '= ' + fr.text, true) : '';
+      if (g('btnCopy')) g('btnCopy').hidden = false;
+    });
+  }
+  function showError(r, message) {
+    panel((g) => {
+      g('panel').dataset.state = 'error';
+      g('expr').className = 'expr';
+      g('expr').innerHTML = tex(r.latex, r.text, true);
+      g('value').className = 'value error';
+      g('value').textContent = message;
+      g('fraction').innerHTML = '';
+      if (g('btnCopy')) g('btnCopy').hidden = true;
+    });
+  }
+  function showWaitingForCalc() {
+    panel((g) => {
+      g('panel').dataset.state = 'live';
+      g('expr').className = 'expr hint';
+      g('expr').textContent = T('waitingWake');
+      g('value').className = 'value waiting';
+      g('value').textContent = '•••';
+      g('fraction').innerHTML = '';
+      if (g('btnCopy')) g('btnCopy').hidden = true;
+    });
+  }
+  // countdown ring around the mic
+  const CIRC = 2 * Math.PI * 58;
+  function countdown(ms) {
+    const c = $('countdown');
+    c.style.transition = 'none';
+    c.style.strokeDashoffset = ms ? '0' : String(CIRC);
+    if (ms) { void c.getBoundingClientRect(); c.style.transition = `stroke-dashoffset ${ms}ms linear`; c.style.strokeDashoffset = String(CIRC); }
+  }
+
+  // ---- history (localStorage) ----
+  let history = [];
+  try { history = JSON.parse(readPref('history', '[]')) || []; } catch { history = []; }
+  function renderItem(item, isNew) {
+    const li = document.createElement('li');
+    if (isNew) li.className = 'new';
+    const b = document.createElement('button');
+    b.title = T('copyItem');
+    const fr = MathSpeech.fraction(item.value);
+    // re-render from the AST so number formatting follows the current language
+    const latex = item.ast ? MathSpeech.latex(item.ast) : item.latex;
+    const plain = item.ast ? MathSpeech.text(item.ast) : item.text;
+    b.innerHTML = '<span class="e"></span><span class="v"></span>';
+    b.children[0].innerHTML = tex(latex, plain);
+    b.children[1].textContent = shortNumber(item.value);
+    if (fr) { const s = document.createElement('small'); s.textContent = fr.text; b.children[1].appendChild(s); }
+    b.onclick = () => copy(item.value);
+    li.appendChild(b);
+    return li;
+  }
+  function refreshEmpty() {
+    const empty = history.length === 0;
+    $('historyEmpty').hidden = !empty;
+    $('btnClear').hidden = empty;
+  }
+  function renderHistory() {
+    $('history').innerHTML = '';
+    for (const item of history) $('history').appendChild(renderItem(item, false));
+    refreshEmpty();
+  }
+  function addToHistory(r) {
+    const item = { ast: r.ast, latex: r.latex, text: r.text, value: r.value };
+    history.unshift(item);
+    history = history.slice(0, 50);
+    savePref('history', JSON.stringify(history));
+    $('history').prepend(renderItem(item, true));
+    while ($('history').children.length > 50) $('history').lastChild.remove();
+    refreshEmpty();
+  }
+  $('btnClear').onclick = () => { history = []; savePref('history', '[]'); renderHistory(); toast(T('historyCleared')); };
+
+  // ---- speech synthesis ----
+  // Prefer the Google voice for the language, then any natural/online one.
+  let muteUntil = 0;
+  function pickVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const want = T('speechLang').toLowerCase();
+    const all = speechSynthesis.getVoices();
+    const exact = all.filter((v) => v.lang && v.lang.toLowerCase().replace('_', '-') === want);
+    const sameLang = all.filter((v) => v.lang && v.lang.toLowerCase().startsWith(lang));
+    return exact.find((v) => /google/i.test(v.name)) || sameLang.find((v) => /google/i.test(v.name))
+      || exact.find((v) => /natural|online/i.test(v.name)) || exact[0] || sameLang[0] || null;
+  }
+  if ('speechSynthesis' in window) speechSynthesis.getVoices();   // loads the voice list
+
+  // Spoken answer: the number only, "about" when rounded to 3 decimals.
+  function spokenPhrase(v) {
+    if (v !== 0 && (Math.abs(v) < 1e-4 || Math.abs(v) >= 1e15)) {
+      const [m, e] = Math.abs(v).toExponential(2).split('e');
+      const mant = Number(m).toLocaleString(MathSpeech.locale(), { maximumFractionDigits: 2 });
+      const exp = Number(e);
+      const ten = lang === 'it' ? ' per 10 alla ' : ' times 10 to the ';
+      return (v < 0 ? T('minus') : '') + mant + ten + (exp < 0 ? T('minus') : '') + Math.abs(exp);
+    }
+    const r3 = Math.round(v * 1000) / 1000;
+    const exact = Math.abs(r3 - v) < 1e-9 * Math.max(1, Math.abs(v));
+    const n = Math.abs(r3).toLocaleString(MathSpeech.locale(), { maximumFractionDigits: 3, useGrouping: false });
+    const num = (r3 < 0 ? T('minus') : '') + n;
+    return exact ? num : T('about') + num;
+  }
+  function speak(s) {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(s.charAt(0).toUpperCase() + s.slice(1) + '.');
+    u.lang = T('speechLang');
+    u.rate = 1.1;   // assertive but natural pace
+    u.pitch = 1.0;
+    const voice = pickVoice();
+    if (voice) u.voice = voice;
+    muteUntil = Infinity;                       // don't listen to our own voice
+    u.onend = u.onerror = () => { muteUntil = Date.now() + 500; };
+    speechSynthesis.speak(u);
+  }
+  function readAloud(v) {
+    if ($('optSpeak').checked) speak(spokenPhrase(v));
+  }
+
+  // ---- speech buffering ----
+  let finalText = '';    // pieces already confirmed by the recognizer since the last result
+  let interimText = '';  // what you're saying right now
+  let timer = null;
+  // Last recognizer slot (index + text) already used for a result. Chrome keeps
+  // re-sending unfinalized slots, so later events must skip what was consumed.
+  let consumed = { index: -1, text: '' };
+  let lastSeen = { index: -1, text: '' };
+
+  function currentText() { return (finalText + ' ' + interimText).replace(/\s+/g, ' ').trim(); }
+  // Wake-word mode: stays armed for WAKE_DURATION after the wake word.
+  const WAKE_DURATION = 10000;
+  let wakeUntil = 0;
+  function afterWakeWord(t) {
+    if (!$('optWake').checked) return t;
+    const m = t.toLowerCase().match(T('wake'));
+    if (m) { wakeUntil = Date.now() + WAKE_DURATION; return m[2]; }
+    return Date.now() < wakeUntil ? t : null;
+  }
+
+  // The speaker moved on: at least 3 unrelated words follow the calculation
+  // (fewer could be a half-transcribed word).
+  function movedOn(sentence) {
+    const words = sentence.trim().split(/\s+/);
+    if (words.length < 4) return false;
+    const r = MathSpeech.find(words.slice(0, -2).join(' '), { partial: true, ans: lastValue });
+    return !!r && !r.atEnd;
+  }
+
+  let timerExpr = null;   // the calculation the running countdown belongs to
+  let pendingText = '';   // the last text that showed a calculation (used if the result is due later)
+  // Fallback when Chrome never finalizes a result.
+  const STALL_MS = 1500;
+
+  // The countdown starts once Chrome finalizes the sentence, not on every short
+  // pause; the "pause" setting is the delay after that.
+  function update() {
+    const t = currentText();
+    if (t) $('heard').textContent = '“' + t + '”';
+    // only already-consumed text: keep any running countdown
+    if (!t) return;
+    pendingText = t;
+
+    const sentence = afterWakeWord(t);
+    const r = sentence != null ? MathSpeech.find(sentence, { partial: true, ans: lastValue }) : null;
+    if (r) showLive(r);
+    else if (sentence != null && $('optWake').checked) showWaitingForCalc();
+
+    // "equals" at the end: answer immediately
+    if (r && r.complete && T('finish').test(t)) { confirm(); return; }
+
+    // A finalized, complete calculation followed by a new one (starting with an
+    // operand) is answered right away; a new part starting with an operator
+    // continues the same expression.
+    if (finalText.trim() && interimText.trim() && MathSpeech.startsNewCalc(interimText)) {
+      const closed = afterWakeWord(finalText.trim());
+      const rc = closed != null ? MathSpeech.find(closed, { partial: true, ans: lastValue }) : null;
+      if (rc && rc.complete && rc.atEnd) { confirmClosedOnly(); return; }
+    }
+
+    // unrelated talk after the calculation: let the running countdown finish
+    const chatter = !!r && !r.atEnd && movedOn(sentence);
+    if (chatter && timer && timerExpr === r.text) return;
+
+    clearTimeout(timer);
+    // no calculation at all
+    if (!r) { countdown(0); timerExpr = null; timer = setTimeout(dropCurrent, Math.max(pauseMs(), STALL_MS)); return; }
+
+    // sentence not finalized yet
+    if (interimText.trim() && !chatter) {
+      countdown(0);
+      timerExpr = null;
+      timer = setTimeout(() => startCountdown(r), STALL_MS);   // safety net if Chrome never closes it
+      return;
+    }
+    startCountdown(r);
+  }
+
+  function startCountdown(r) {
+    clearTimeout(timer);
+    // trailing operator: wait longer
+    const wait = r.complete ? pauseMs() : Math.max(pauseMs() * 2.5, STALL_MS);
+    countdown(wait);
+    timerExpr = r.text;
+    timer = setTimeout(confirm, wait);
+  }
+
+  // mark everything heard so far as consumed
+  function dropCurrent() {
+    clearTimeout(timer);
+    timer = null; timerExpr = null;
+    countdown(0);
+    consumed = { index: lastSeen.index, text: lastSeen.text };
+    finalText = ''; interimText = ''; pendingText = '';
+    setTimeout(() => { if (!currentText()) $('heard').textContent = ''; }, 2500);
+  }
+
+  function confirm() {
+    const t = currentText() || pendingText;
+    dropCurrent();
+    resultsFor(t);
+  }
+
+  // Answer the finalized sentence and keep the one in progress.
+  function confirmClosedOnly() {
+    const t = finalText.trim();
+    const keep = interimText;
+    clearTimeout(timer);
+    timer = null; timerExpr = null;
+    countdown(0);
+    consumed = { index: lastFinal.index, text: lastFinal.text };
+    finalText = ''; pendingText = '';
+    resultsFor(t);
+    interimText = keep;
+    update();
+  }
+
+  // Answer every calculation in t; earlier ones go straight to the history.
+  function resultsFor(t) {
+    const sentence = afterWakeWord(t);
+    if (sentence == null) return;
+    const all = MathSpeech.findAll(sentence, { ans: lastValue });
+    let r = MathSpeech.find(sentence, { partial: true, ans: lastValue });
+    if (!r) return;                 // only the wake word, no numbers: stay active and wait
+    wakeUntil = 0;                  // calculation received: the wake word is needed again next time
+    const earlier = r.complete && all.length ? all.slice(0, -1) : all;
+    if (earlier.length) {
+      for (const c of earlier) { lastValue = c.value; addToHistory(c); }
+      r = MathSpeech.find(sentence, { partial: true, ans: lastValue });   // the last one may continue from them
+    }
+    if (!r.complete) {
+      if (r.atEnd) showError(r, T('incomplete')); else if (!earlier.length) showEmpty();
+      return;
+    }
+    if (!Number.isFinite(r.value)) { showError(r, T('impossible')); return; }
+    lastValue = r.value;
+    showResult(r);
+    addToHistory(r);
+    readAloud(r.value);
+  }
+
+  // ---- clickable examples ----
+  function runExample(s) {
+    finalText = ($('optWake').checked ? T('wakeWord') : '') + s;
+    interimText = '';
+    update();
+    clearTimeout(timer);
+    countdown(700);
+    timer = setTimeout(confirm, 700);
+  }
+
+  // ---- overall status and notices ----
+  let statusKey = 'starting';
+  function setStatus(key, state) {
+    statusKey = key;
+    $('status').textContent = T(key);
+    app.dataset.state = state;
+  }
+  function refreshListeningStatus() {
+    if (app.dataset.state === 'listening' || app.dataset.state === 'starting') {
+      setStatus($('optWake').checked ? 'listeningWake' : 'listening', 'listening');
+    }
+  }
+  let noticeKeys = null;
+  function notice(titleKey, bodyKey) {
+    noticeKeys = [titleKey, bodyKey];
+    $('noticeTitle').textContent = T(titleKey);
+    $('noticeBody').innerHTML = T(bodyKey);
+    $('notice').hidden = false;
+  }
+  function closeNotice() { $('notice').hidden = true; noticeKeys = null; }
+
+  applyStrings();
+  applyTheme(readPref('theme', 'auto'));
+  showEmpty();
+  renderHistory();
+  setStatus('starting', 'starting');
+
+  if (!SR) {
+    setStatus('unsupported', 'error');
+    notice('unsupportedTitle', 'unsupportedBody');
+    $('btnRetry').hidden = true;
+    $('btnPause').disabled = true;
+    window.voiceCalcTest = null;
+    return;
+  }
+
+  const rec = new SR();
+  rec.lang = T('speechLang');
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 5;   // several guesses: the one that is a calculation wins
+
+  let paused = false;
+  let blocked = false;
+
+  // ---- mic level meter (halo around the button) ----
+  let levelStarted = false;
+  async function startLevelMeter() {
+    if (levelStarted || !navigator.mediaDevices) return;
+    levelStarted = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const ac = new AudioContext();
+      const an = ac.createAnalyser();
+      an.fftSize = 512;
+      ac.createMediaStreamSource(stream).connect(an);
+      const resume = () => { if (ac.state === 'suspended') ac.resume(); };
+      document.addEventListener('pointerdown', resume);
+      document.addEventListener('keydown', resume);
+      const buf = new Uint8Array(an.fftSize);
+      let lvl = 0;
+      const loop = () => {
+        an.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const d = (buf[i] - 128) / 128; sum += d * d; }
+        const target = paused ? 0 : Math.min(1, Math.sqrt(sum / buf.length) * 7);
+        lvl += (target - lvl) * (target > lvl ? 0.5 : 0.12);
+        $('micWrap').style.setProperty('--lvl', lvl.toFixed(3));
+        requestAnimationFrame(loop);
+      };
+      loop();
+    } catch { /* works fine without the animated halo */ }
+  }
+
+  rec.onstart = () => {
+    blocked = false;
+    closeNotice();
+    app.dataset.state = 'listening';
+    refreshListeningStatus();
+    startLevelMeter();
+    // result indices restart with each session
+    consumed = { index: -1, text: '' };
+    lastSeen = { index: -1, text: '' };
+  };
+  const words = (s) => s.toLowerCase().replace(/[.,;:!?"“”]/g, ' ').split(/\s+/).filter(Boolean);
+  // Keep Chrome's first alternative unless only a later one parses as math.
+  const hasCalc = (tx) => !!MathSpeech.find(tx, { partial: true });
+  function bestTranscript(res) {
+    if (res.length < 2 || hasCalc(res[0].transcript)) return res[0].transcript;
+    for (let k = 1; k < res.length; k++) if (hasCalc(res[k].transcript)) return res[k].transcript;
+    return res[0].transcript;
+  }
+
+  // Unconsumed part of a slot that was already used. Chrome may re-send or rewrite
+  // it, append to it, or reuse it for a new sentence; compared by token signature.
+  function unusedPart(usedText, tx) {
+    const used = MathSpeech.meaningKey(usedText);
+    const all = words(tx);
+    if (!used) return all.join(' ');
+    if (MathSpeech.meaningKey(tx) === used) return '';
+    for (let j = 1; j < all.length; j++) {
+      if (MathSpeech.meaningKey(all.slice(0, j).join(' ')) === used) return all.slice(j).join(' ');
+    }
+    // prefix of the old sentence: still being rewritten
+    const cur = MathSpeech.meaningKey(tx);
+    if (cur && (used + ' ').startsWith(cur + ' ')) return '';
+    return all.join(' ');
+  }
+
+  let lastFinal = { index: -1, text: '' };   // the last sentence Chrome closed
+  rec.onresult = (ev) => {
+    const last = ev.results.length - 1;
+    lastSeen = { index: last, text: bestTranscript(ev.results[last]) };
+    if (Date.now() < muteUntil) { consumed = { ...lastSeen }; return; }   // our own voice: ignore it
+    let now = '';
+    finalText = '';
+    for (let i = Math.max(0, consumed.index); i < ev.results.length; i++) {
+      const res = ev.results[i];
+      let tx = bestTranscript(res);
+      if (i === consumed.index) tx = unusedPart(consumed.text, tx);
+      if (!tx.trim()) continue;
+      if (res.isFinal) { finalText += ' ' + tx; lastFinal = { index: i, text: bestTranscript(res) }; }
+      else now += ' ' + tx;
+    }
+    interimText = now;
+    update();
+  };
+  rec.onerror = (ev) => {
+    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+      blocked = true;
+      setStatus('micBlocked', 'error');
+      notice('blockedTitle', 'blockedBody');
+    } else if (ev.error === 'network') {
+      setStatus('offline', 'error');
+    } else if (ev.error === 'audio-capture') {
+      blocked = true;
+      setStatus('noMic', 'error');
+      notice('noMicTitle', 'noMicBody');
+    }
+    // "no-speech" / "aborted": onend restarts recognition
+  };
+  rec.onend = () => {
+    // Chrome ends the session after some silence
+    if (paused || blocked) return;
+    setTimeout(() => { try { rec.start(); } catch {} }, 250);
+  };
+
+  function pause(on) {
+    paused = on;
+    $('btnPause').setAttribute('aria-label', T(on ? 'resumeAria' : 'pauseAria'));
+    if (on) {
+      rec.abort(); clearTimeout(timer); timer = null; timerExpr = null; pendingText = ''; finalText = interimText = ''; countdown(0);
+      $('heard').textContent = '';
+      setStatus('paused', 'paused');
+    } else {
+      blocked = false;
+      setStatus('starting', 'starting');
+      try { rec.start(); } catch {}
+    }
+  }
+  $('btnPause').setAttribute('aria-label', T('pauseAria'));
+  $('btnPause').onclick = () => pause(!paused);
+  $('btnRetry').onclick = () => { closeNotice(); paused = true; pause(false); };
+
+  // ---- language switch ----
+  function setLanguage(l) {
+    if (l === lang) return;
+    lang = l;
+    savePref('lang', l);
+    MathSpeech.setLanguage(l);
+    applyStrings();
+    $('status').textContent = T(statusKey);
+    $('btnPause').setAttribute('aria-label', T(paused ? 'resumeAria' : 'pauseAria'));
+    if (noticeKeys) notice(noticeKeys[0], noticeKeys[1]);
+    clearTimeout(timer); timer = null; timerExpr = null; pendingText = ''; countdown(0);
+    finalText = interimText = ''; wakeUntil = 0; lastValue = null;
+    $('heard').textContent = '';
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    showEmpty();
+    renderHistory();
+    // abort; onend restarts it with the new language
+    rec.lang = T('speechLang');
+    if (!paused && !blocked) { try { rec.abort(); } catch {} }
+  }
+  $('langSwitch').onclick = (e) => { const l = e.target.closest('button')?.dataset.lang; if (l) setLanguage(l); };
+
+  document.addEventListener('keydown', (e) => {
+    const inControl = e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON';
+    if (e.key === 'Escape') { settings(false); return; }
+    if (e.code === 'Space' && !inControl) { e.preventDefault(); pause(!paused); }
+    if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && e.target.tagName !== 'INPUT') copy(lastValue);
+  });
+
+  // Test hooks (tests/replay.js): drive the app without a microphone.
+  window.voiceCalcTest = {
+    // add text as if recognized; isFinal = Chrome finalized it
+    say(s, isFinal = true) {
+      if (isFinal) { finalText += ' ' + s; interimText = ''; } else interimText = s;
+      update();
+    },
+    // replay a recognizer event; a transcript may be an array of alternatives
+    results(resultIndex, list) {
+      const results = list.map(([tx, isFinal]) => Object.assign([].concat(tx).map((transcript) => ({ transcript })), { isFinal }));
+      rec.onresult({ resultIndex, results });
+    },
+    newSession() {
+      clearTimeout(timer); timer = null; timerExpr = null; countdown(0);
+      consumed = { index: -1, text: '' }; lastSeen = { index: -1, text: '' }; lastFinal = { index: -1, text: '' };
+      finalText = interimText = pendingText = ''; lastValue = null; wakeUntil = 0;
+      showEmpty();
+    },
+  };
+
+  try { rec.start(); } catch (e) { setStatus('cannotStart', 'error'); }
+})();
+</script>
+</body>
+</html>

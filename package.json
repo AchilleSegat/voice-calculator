@@ -1,0 +1,19 @@
+{
+  "name": "voice-calculator",
+  "version": "1.0.0",
+  "description": "Hands-free calculator: dictate math in English or Italian and see the formula and result as you speak.",
+  "private": true,
+  "license": "MIT",
+  "author": "Achille Segat",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AchilleSegat/voice-calculator.git"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/parser.test.js && node tests/textbook.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
