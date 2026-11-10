@@ -81,6 +81,24 @@
       s.say(1, 'per 2', true); await W(500);
       return [history(), ['42', '84']];
     },
+    'session ends between two calculations (phones)': async (s) => {
+      s.say(0, '4 per 2', true);
+      voiceCalcTest.restart();                      // new session before the countdown ends
+      const s2 = session();
+      s2.say(0, '7 per 3', false); await W(80);
+      s2.say(0, '7 per 3', true); await W(700);
+      return [history(), ['8', '21']];
+    },
+    'session ends in the middle of a calculation': async (s) => {
+      document.getElementById('optPause').value = '1000';
+      s.say(0, '4 più 2', true);
+      voiceCalcTest.restart();
+      const s2 = session();
+      s2.say(0, 'per 3', true);
+      await waitFor(() => history().length > 0, 3000);
+      document.getElementById('optPause').value = '100';
+      return [history(), ['10']];
+    },
     'fractions: 7/8 · 4/3': async (s) => {
       s.say(0, '7 ottavi per 4 terzi', true); await W(500);
       return [[history(), document.getElementById('expr').innerText.replace(/\s+/g, '')], [['≈ 1,166667'], '78⋅43=87​⋅34​=']];

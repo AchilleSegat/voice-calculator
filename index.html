@@ -410,6 +410,7 @@
       noMic: 'No microphone',
       unsupported: 'Speech recognition unavailable',
       cannotStart: 'Could not start the microphone',
+      tapToStart: 'Tap the mic to start',
       pauseAria: 'Pause listening',
       resumeAria: 'Resume listening',
       shortcuts: '<kbd>Space</kbd> pause · <kbd>C</kbd> copy · say <b>"equals"</b> for an instant result',
@@ -492,6 +493,7 @@
       noMic: 'Nessun microfono',
       unsupported: 'Riconoscimento vocale non disponibile',
       cannotStart: 'Impossibile avviare il microfono',
+      tapToStart: 'Tocca il microfono per iniziare',
       pauseAria: "Metti in pausa l'ascolto",
       resumeAria: "Riprendi l'ascolto",
       shortcuts: '<kbd>Spazio</kbd> pausa · <kbd>C</kbd> copia · di\' <b>"uguale"</b> per il risultato subito',
@@ -834,6 +836,8 @@
 
   // ---- speech buffering ----
   let finalText = '';    // pieces already confirmed by the recognizer since the last result
+  let carry = '';        // finalized text from earlier recognition sessions, not used yet
+  let sessionId = 0;
   let interimText = '';  // what you're saying right now
   let timer = null;
   // Last recognizer slot (index + text) already used for a result. Chrome keeps
@@ -925,7 +929,7 @@
     timer = null; timerExpr = null;
     countdown(0);
     consumed = { index: lastSeen.index, text: lastSeen.text };
-    finalText = ''; interimText = ''; pendingText = '';
+    finalText = ''; interimText = ''; pendingText = ''; carry = '';
     setTimeout(() => { if (!currentText()) $('heard').textContent = ''; }, 2500);
   }
 
@@ -942,8 +946,9 @@
     clearTimeout(timer);
     timer = null; timerExpr = null;
     countdown(0);
-    consumed = { index: lastFinal.index, text: lastFinal.text };
-    finalText = ''; pendingText = '';
+    // the closed sentence may come from an earlier session (carry): nothing of this one is used then
+    consumed = lastFinal.session === sessionId ? { index: lastFinal.index, text: lastFinal.text } : { index: -1, text: '' };
+    finalText = ''; pendingText = ''; carry = '';
     resultsFor(t);
     interimText = keep;
     update();
@@ -1019,19 +1024,38 @@
     return;
   }
 
+  // Phones: the microphone can't be shared between getUserMedia and speech
+  // recognition, and continuous mode is unreliable on Android Chrome.
+  const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+
   const rec = new SR();
   rec.lang = T('speechLang');
-  rec.continuous = true;
+  rec.continuous = !MOBILE;   // on phones: one sentence per session, restarted in onend
   rec.interimResults = true;
   rec.maxAlternatives = 5;   // several guesses: the one that is a calculation wins
 
   let paused = false;
   let blocked = false;
+  let listening = false;
 
   // ---- mic level meter (halo around the button) ----
+  // Phones: no second microphone stream; the halo follows recognition events instead.
+  let eventLevel = 0;
+  function bumpLevel(v) { eventLevel = Math.max(eventLevel, v); }
+  if (MOBILE) {
+    const decay = () => {
+      eventLevel *= 0.9;
+      $('micWrap').style.setProperty('--lvl', (paused ? 0 : eventLevel).toFixed(3));
+      requestAnimationFrame(decay);
+    };
+    decay();
+    rec.onsoundstart = () => bumpLevel(0.4);
+    rec.onspeechstart = () => bumpLevel(0.7);
+  }
   let levelStarted = false;
   async function startLevelMeter() {
-    if (levelStarted || !navigator.mediaDevices) return;
+    if (MOBILE || levelStarted || !navigator.mediaDevices) return;
     levelStarted = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -1057,16 +1081,22 @@
     } catch { /* works fine without the animated halo */ }
   }
 
-  rec.onstart = () => {
+  // Text finalized in earlier recognition sessions and not used yet: a session can
+  // end in the middle of a calculation (always on phones, after silence on desktop).
+  function onSessionStart() {
+    listening = true;
     blocked = false;
     closeNotice();
     app.dataset.state = 'listening';
     refreshListeningStatus();
     startLevelMeter();
+    carry = finalText.trim();
+    sessionId++;
     // result indices restart with each session
     consumed = { index: -1, text: '' };
     lastSeen = { index: -1, text: '' };
-  };
+  }
+  rec.onstart = onSessionStart;
   const words = (s) => s.toLowerCase().replace(/[.,;:!?"“”]/g, ' ').split(/\s+/).filter(Boolean);
   // Keep Chrome's first alternative unless only a later one parses as math.
   const hasCalc = (tx) => !!MathSpeech.find(tx, { partial: true });
@@ -1092,19 +1122,20 @@
     return all.join(' ');
   }
 
-  let lastFinal = { index: -1, text: '' };   // the last sentence Chrome closed
+  let lastFinal = { index: -1, text: '', session: 0 };   // the last sentence Chrome closed
   rec.onresult = (ev) => {
     const last = ev.results.length - 1;
     lastSeen = { index: last, text: bestTranscript(ev.results[last]) };
     if (Date.now() < muteUntil) { consumed = { ...lastSeen }; return; }   // our own voice: ignore it
+    if (MOBILE) bumpLevel(0.8);
     let now = '';
-    finalText = '';
+    finalText = carry ? ' ' + carry : '';
     for (let i = Math.max(0, consumed.index); i < ev.results.length; i++) {
       const res = ev.results[i];
       let tx = bestTranscript(res);
       if (i === consumed.index) tx = unusedPart(consumed.text, tx);
       if (!tx.trim()) continue;
-      if (res.isFinal) { finalText += ' ' + tx; lastFinal = { index: i, text: bestTranscript(res) }; }
+      if (res.isFinal) { finalText += ' ' + tx; lastFinal = { index: i, text: bestTranscript(res), session: sessionId }; }
       else now += ' ' + tx;
     }
     interimText = now;
@@ -1125,16 +1156,17 @@
     // "no-speech" / "aborted": onend restarts recognition
   };
   rec.onend = () => {
-    // Chrome ends the session after some silence
+    // Chrome ends the session after some silence (on phones, after every sentence)
+    listening = false;
     if (paused || blocked) return;
-    setTimeout(() => { try { rec.start(); } catch {} }, 250);
+    setTimeout(() => { try { rec.start(); } catch {} }, MOBILE ? 100 : 250);
   };
 
   function pause(on) {
     paused = on;
     $('btnPause').setAttribute('aria-label', T(on ? 'resumeAria' : 'pauseAria'));
     if (on) {
-      rec.abort(); clearTimeout(timer); timer = null; timerExpr = null; pendingText = ''; finalText = interimText = ''; countdown(0);
+      rec.abort(); clearTimeout(timer); timer = null; timerExpr = null; pendingText = ''; carry = ''; finalText = interimText = ''; countdown(0);
       $('heard').textContent = '';
       setStatus('paused', 'paused');
     } else {
@@ -1144,7 +1176,11 @@
     }
   }
   $('btnPause').setAttribute('aria-label', T('pauseAria'));
-  $('btnPause').onclick = () => pause(!paused);
+  // Some phones (iPhone) only start recognition from a tap: if it isn't running, a tap starts it.
+  $('btnPause').onclick = () => {
+    if (!paused && !listening && !blocked) { setStatus('starting', 'starting'); try { rec.start(); } catch {} return; }
+    pause(!paused);
+  };
   $('btnRetry').onclick = () => { closeNotice(); paused = true; pause(false); };
 
   // ---- language switch ----
@@ -1158,7 +1194,7 @@
     $('btnPause').setAttribute('aria-label', T(paused ? 'resumeAria' : 'pauseAria'));
     if (noticeKeys) notice(noticeKeys[0], noticeKeys[1]);
     clearTimeout(timer); timer = null; timerExpr = null; pendingText = ''; countdown(0);
-    finalText = interimText = ''; wakeUntil = 0; lastValue = null;
+    finalText = interimText = carry = ''; wakeUntil = 0; lastValue = null;
     $('heard').textContent = '';
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     showEmpty();
@@ -1188,14 +1224,18 @@
       const results = list.map(([tx, isFinal]) => Object.assign([].concat(tx).map((transcript) => ({ transcript })), { isFinal }));
       rec.onresult({ resultIndex, results });
     },
+    // the recognizer ends the session and starts a new one (unused text is carried over)
+    restart() { onSessionStart(); },
     newSession() {
       clearTimeout(timer); timer = null; timerExpr = null; countdown(0);
       consumed = { index: -1, text: '' }; lastSeen = { index: -1, text: '' }; lastFinal = { index: -1, text: '' };
-      finalText = interimText = pendingText = ''; lastValue = null; wakeUntil = 0;
+      finalText = interimText = pendingText = ''; carry = ''; lastValue = null; wakeUntil = 0;
       showEmpty();
     },
   };
 
+  // if recognition hasn't started by itself (iPhone needs a tap), say so
+  setTimeout(() => { if (!listening && !paused && !blocked) setStatus('tapToStart', 'paused'); }, 2500);
   try { rec.start(); } catch (e) { setStatus('cannotStart', 'error'); }
 })();
 </script>
