@@ -1192,12 +1192,12 @@
       if (ans != null && seg.length > 1 && seg[0].t === 'op' && !seg[0].implicit && '+*/^'.includes(seg[0].v)) {
         seg = [{ t: 'num', v: ans, ans: true }].concat(seg);
       }
+      // only a calculation that runs to the end of its segment: "4 per 2 diviso" is
+      // unfinished, not "4 per 2" plus a stray word
       let found = null;
-      for (let len = seg.length; len >= 2 && !found; len--) {
-        for (let a = seg.length - len; a >= 0 && !found; a--) {
-          const r = analyze(seg.slice(a, a + len), false);
-          if (r && r.complete) found = r;
-        }
+      for (let a = 0; a < seg.length - 1 && !found; a++) {
+        const r = analyze(seg.slice(a), false);
+        if (r && r.complete) found = r;
       }
       if (found) { out.push(found); ans = found.value; }
     }

@@ -348,6 +348,7 @@ M.setLanguage('it');
   check(JSON.stringify(vals('4 per 2 uguale per 3')) === '[8,24]', `findAll "4 per 2 uguale per 3" -> ${JSON.stringify(vals('4 per 2 uguale per 3'))}`);
   check(JSON.stringify(vals('2 pi greco per 3')).startsWith('[18.8'), `findAll "2 pi greco per 3" is one calculation`);
   check(JSON.stringify(vals('oggi studio fisica')) === '[]', 'findAll on plain speech is empty');
+  check(JSON.stringify(vals('4 per 2 diviso')) === '[]', 'findAll ignores an unfinished calculation ("4 per 2 diviso")');
   const same = (a, b) => M.meaningKey(a) === M.meaningKey(b);
   check(same('quattro per due', '4x2'), 'meaningKey: "quattro per due" = "4x2"');
   check(same('otto per tre uguale', '8 × 3'), 'meaningKey: "otto per tre uguale" = "8 × 3"');
